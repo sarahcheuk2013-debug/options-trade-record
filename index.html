@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101b2b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="記錄期權買賣、追蹤盈虧與結餘，按資產比例規劃下一筆交易。">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <title>期權手帳 · Option Log</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">O<span>↗</span></span><div><strong>期權手帳</strong><small>OPTION LOG</small></div></div>
+      <button class="icon-button" id="settings-button" aria-label="設定" title="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 13.3a7.7 7.7 0 0 0 0-2.6l2-1.5-2-3.4-2.3.9a8 8 0 0 0-2.2-1.3L14.5 3h-4l-.4 2.4a8 8 0 0 0-2.2 1.3l-2.3-.9-2 3.4 2 1.5a7.7 7.7 0 0 0 0 2.6l-2 1.5 2 3.4 2.3-.9a8 8 0 0 0 2.2 1.3l.4 2.4h4l.4-2.4a8 8 0 0 0 2.2-1.3l2.3.9 2-3.4-2-1.5Z"/></svg></button>
+    </header>
+
+    <main>
+      <section id="dashboard-view" class="view active" aria-label="概覽">
+        <div class="eyebrow-row"><span class="eyebrow">YOUR PORTFOLIO</span><span class="live-dot">個人交易記錄</span></div>
+        <section class="hero-card">
+          <div class="hero-label">總資產 <button class="info-button" id="asset-info" aria-label="總資產計算方式">ⓘ</button></div>
+          <div class="hero-value" id="asset-value">—</div>
+          <div class="hero-bottom"><div><span>已實現盈虧</span><strong id="realized-value">—</strong></div><div class="hero-divider"></div><div><span>現金結餘</span><strong id="cash-value">—</strong></div></div>
+        </section>
+
+        <div class="section-heading"><div><span class="eyebrow">NEXT TRADE</span><h2>下一筆交易額度</h2></div><span class="rule-pill">25 / 3 規則</span></div>
+        <div class="limit-grid">
+          <div class="limit-card"><div class="limit-icon allocation-icon">◫</div><p>單筆資金上限</p><strong id="allocation-value">—</strong><small>總資產 × 25%</small></div>
+          <div class="limit-card"><div class="limit-icon risk-icon">◎</div><p>最大可承受虧損</p><strong id="risk-value">—</strong><small>總資產 × 3%</small></div>
+        </div>
+        <button class="planner-link" id="open-planner"><span><b>計算可買幾張</b><small>輸入權利金及止損價，試算倉位</small></span><span aria-hidden="true">↗</span></button>
+
+        <div class="section-heading trades-heading"><div><span class="eyebrow">POSITIONS</span><h2>近期倉位</h2></div><button class="text-link" id="see-all">查看全部 →</button></div>
+        <div id="recent-list" class="trade-list"></div>
+      </section>
+
+      <section id="trades-view" class="view" aria-label="交易記錄">
+        <div class="page-title"><span class="eyebrow">TRADE JOURNAL</span><h1>交易記錄</h1><p>每一筆開倉和平倉，都在這裏。</p></div>
+        <div class="segmented" role="tablist" aria-label="交易篩選"><button class="selected" data-filter="all" role="tab" aria-selected="true">全部</button><button data-filter="open" role="tab" aria-selected="false">持倉中</button><button data-filter="closed" role="tab" aria-selected="false">已平倉</button></div>
+        <div id="all-list" class="trade-list"></div>
+      </section>
+
+      <section id="settings-view" class="view" aria-label="設定">
+        <div class="page-title"><span class="eyebrow">PREFERENCES</span><h1>設定</h1><p>管理起始資金及你的記錄。</p></div>
+        <form id="settings-form" class="panel form-panel">
+          <label>起始資金 <span>用作計算總資產</span><input id="starting-capital" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+          <label>記帳貨幣 <span>所有交易請用同一種貨幣</span><select id="currency"><option value="USD">USD · 美元</option><option value="HKD">HKD · 港元</option></select></label>
+          <label>每張合約乘數 <span>美股期權一般為 100，請以實際合約為準</span><input id="multiplier" type="number" min="1" step="1" inputmode="numeric" required></label>
+          <button class="primary-button" type="submit">儲存設定</button>
+        </form>
+        <div class="settings-card"><div><b>資料備份</b><p>記錄儲存在這部裝置的瀏覽器。換機前請匯出備份。</p></div><button id="export-button" class="secondary-button">匯出 JSON</button><label class="secondary-button import-label">匯入 JSON<input id="import-file" type="file" accept="application/json,.json" hidden></label></div>
+        <button id="reset-button" class="danger-link">清除所有交易記錄</button>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="主要導覽"><button class="nav-item active" data-view="dashboard"><span class="nav-icon">▦</span><span>概覽</span></button><button class="nav-item" data-view="trades"><span class="nav-icon">≡</span><span>交易</span></button><button class="nav-item add-nav" id="add-button" aria-label="新增交易"><span>＋</span></button><button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span><span>設定</span></button></nav>
+  </div>
+
+  <dialog id="trade-dialog" class="sheet"><form id="trade-form" method="dialog" novalidate><div class="sheet-head"><div><span class="eyebrow">NEW ENTRY</span><h2 id="trade-dialog-title">新增交易</h2></div><button type="button" class="close-button" data-close="trade-dialog" aria-label="關閉">×</button></div>
+    <div class="segmented action-tabs"><button type="button" class="selected" data-entry-mode="open">開倉</button><button type="button" data-entry-mode="close">平倉</button></div>
+    <div id="open-fields"><div class="form-grid"><label>股票代號<input id="symbol" type="text" autocomplete="off" autocapitalize="characters" placeholder="例如 AAPL" maxlength="12"></label><label>期權類型<select id="option-type"><option value="CALL">Call</option><option value="PUT">Put</option></select></label><label>到期日<input id="expiry" type="date"></label><label>行使價<input id="strike" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label></div><label>開倉方向<select id="side"><option value="long">買入開倉 · Long</option><option value="short">賣出開倉 · Short</option></select></label></div>
+    <div id="close-fields" hidden><label>選擇持倉<select id="close-position"></select></label><div id="close-summary" class="form-hint"></div></div>
+    <div class="form-grid"><label>合約數量<input id="contracts" type="number" min="1" step="1" inputmode="numeric" placeholder="1"></label><label>每股權利金<input id="premium" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></label><label>交易日期<input id="trade-date" type="date"></label><label>手續費<input id="fee" type="number" min="0" step="0.01" inputmode="decimal" value="0"></label></div>
+    <label>備註 <span>選填</span><textarea id="notes" rows="2" placeholder="交易想法、入場原因…"></textarea></label>
+    <div id="trade-preview" class="trade-preview"></div><p id="trade-error" class="form-error" role="alert"></p><button class="primary-button" type="submit" id="save-trade">儲存開倉</button>
+  </form></dialog>
+
+  <dialog id="planner-dialog" class="sheet"><div class="sheet-head"><div><span class="eyebrow">POSITION SIZING</span><h2>倉位試算</h2></div><button type="button" class="close-button" data-close="planner-dialog" aria-label="關閉">×</button></div><div class="segmented action-tabs"><button class="selected" data-plan-mode="long">買入期權</button><button data-plan-mode="short">賣出／價差</button></div><div id="long-planner"><div class="form-grid"><label>買入權利金<input id="plan-entry" type="number" min="0" step="0.01" inputmode="decimal" placeholder="每股價格"></label><label>預設止損價<input id="plan-stop" type="number" min="0" step="0.01" inputmode="decimal" placeholder="預設 0"></label></div><p class="subtle-note">未設止損價時，以整筆權利金計最大虧損。止損價只用作計劃，實際成交可能有差異。</p></div><div id="short-planner" hidden><div class="form-grid"><label>每張佔用資金<input id="plan-capital" type="number" min="0" step="0.01" inputmode="decimal" placeholder="例如保證金"></label><label>每張最大虧損<input id="plan-risk" type="number" min="0" step="0.01" inputmode="decimal" placeholder="請輸入明確風險"></label></div><p class="subtle-note">只適用於風險有上限的策略。無上限風險的裸賣期權無法用此規則計算張數。</p></div><div id="planner-result" class="planner-result"><span>建議最多合約數</span><strong>—</strong><small>輸入價格後即時試算</small></div><div class="planner-limits"><div>資金上限<strong id="planner-allocation">—</strong></div><div>風險上限<strong id="planner-risk-limit">—</strong></div></div></dialog>
+
+  <dialog id="detail-dialog" class="sheet"><div class="sheet-head"><div><span class="eyebrow">POSITION DETAIL</span><h2 id="detail-title">交易詳情</h2></div><button type="button" class="close-button" data-close="detail-dialog" aria-label="關閉">×</button></div><div id="detail-content"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
