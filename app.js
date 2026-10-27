@@ -27,8 +27,8 @@
   function pct(value){return Number.isFinite(value)?`${value>0?'+':''}${value.toFixed(1)}%`:'—'}
   function isWhole(n){return Number.isInteger(n) && n>0}
   function isSpread(pos){return pos.strategy==='bullCallSpread'}
-  function spreadDebit(pos){return pos.longPremium-pos.shortPremium}
-  function spreadCloseCredit(close){return close.longPremium-close.shortPremium}
+  function spreadDebit(pos){return Number.isFinite(pos.debit)?pos.debit:pos.longPremium-pos.shortPremium}
+  function spreadCloseCredit(close){return Number.isFinite(close.credit)?close.credit:close.longPremium-close.shortPremium}
   function remaining(pos){return pos.contracts-pos.closings.reduce((s,c)=>s+c.contracts,0)}
   function closedCount(pos){return pos.contracts-remaining(pos)}
   function realized(pos){
@@ -140,8 +140,8 @@
     if(!isWhole(qty)){$('trade-preview').textContent='';return}
     if(entryMode==='open'){
       if($('strategy').value==='bullCallSpread'){
-        if($('long-premium').value===''||$('short-premium').value===''){$('trade-preview').textContent='';return}
-        const buy=Number($('long-premium').value),sell=Number($('short-premium').value),debit=buy-sell,width=Number($('short-strike').value)-Number($('long-strike').value);
+        if($('spread-debit').value===''){$('trade-preview').textContent='';return}
+        const debit=Number($('spread-debit').value),width=Number($('short-strike').value)-Number($('long-strike').value);
         if(!Number.isFinite(debit)||debit<=0){$('trade-preview').textContent='買入價差須有正數淨成本。';return}
         const cost=debit*mult*qty+fee;
         $('trade-preview').textContent=`淨買入成本 ${money(debit)}／股 · 現金減少 ${money(cost)} · 預計最大虧損 ${money(cost)}${width>0?` · 到期最大盈利 ${money((width-debit)*mult*qty-fee)}`:''}`;
@@ -156,8 +156,10 @@
       if(!p){$('trade-preview').textContent='';return}
       let change;
       if(isSpread(p)){
-        if($('close-long-premium').value===''||$('close-short-premium').value===''){$('trade-preview').textContent='';return}
-        change=Number($('close-long-premium').value)-Number($('close-short-premium').value)-spreadDebit(p);
+        if($('spread-credit').value===''){$('trade-preview').textContent='';return}
+        const credit=Number($('spread-credit').value);
+        if(!Number.isFinite(credit)||credit<0){$('trade-preview').textContent='Net credit 不能少於 0。';return}
+        change=credit-spreadDebit(p);
       }else{
         if($('premium').value===''){$('trade-preview').textContent='';return}
         const price=Number($('premium').value);
@@ -177,9 +179,9 @@
       if(!/^[A-Z0-9.\-]{1,12}$/.test(symbol)||!expiry){$('trade-error').textContent='請填寫股票代號及到期日。';return}
       if(date>expiry){$('trade-error').textContent='交易日期不能遲於到期日。';return}
       if($('strategy').value==='bullCallSpread'){
-        const longStrike=Number($('long-strike').value),shortStrike=Number($('short-strike').value),longPremium=Number($('long-premium').value),shortPremium=Number($('short-premium').value);
-        if([$('long-strike'),$('short-strike'),$('long-premium'),$('short-premium')].some(el=>el.value==='')||!Number.isFinite(longStrike)||!Number.isFinite(shortStrike)||!Number.isFinite(longPremium)||!Number.isFinite(shortPremium)||longStrike<=0||shortStrike<=longStrike||longPremium<0||shortPremium<0||longPremium<=shortPremium){$('trade-error').textContent='請輸入有效的兩腳行使價及權利金；賣出 Call 行使價須較高，開倉須為淨買入。';return}
-        data.positions.push({id:uid(),strategy:'bullCallSpread',symbol,type:'CALL',expiry,longStrike,shortStrike,longPremium,shortPremium,contracts:qty,fee,date,notes,closings:[]});
+        const longStrike=Number($('long-strike').value),shortStrike=Number($('short-strike').value),debit=Number($('spread-debit').value);
+        if([$('long-strike'),$('short-strike'),$('spread-debit')].some(el=>el.value==='')||!Number.isFinite(longStrike)||!Number.isFinite(shortStrike)||!Number.isFinite(debit)||longStrike<=0||shortStrike<=longStrike||debit<=0){$('trade-error').textContent='請輸入有效的兩腳行使價及正數 net debit；賣出 Call 行使價須較高。';return}
+        data.positions.push({id:uid(),strategy:'bullCallSpread',symbol,type:'CALL',expiry,longStrike,shortStrike,debit,contracts:qty,fee,date,notes,closings:[]});
       }else{
         const strike=Number($('strike').value),premium=Number($('premium').value);
         if($('strike').value===''||$('premium').value===''||!Number.isFinite(strike)||strike<=0||!Number.isFinite(premium)||premium<0){$('trade-error').textContent='請填寫有效行使價及權利金。';return}
@@ -191,9 +193,9 @@
       if(qty>remaining(pos)){$('trade-error').textContent=`平倉數量不能多於尚餘 ${remaining(pos)} ${isSpread(pos)?'組':'張'}。`;return}
       if(date<pos.date){$('trade-error').textContent='平倉日期不能早於開倉日期。';return}
       if(isSpread(pos)){
-        const longPremium=Number($('close-long-premium').value),shortPremium=Number($('close-short-premium').value);
-        if($('close-long-premium').value===''||$('close-short-premium').value===''||!Number.isFinite(longPremium)||!Number.isFinite(shortPremium)||longPremium<0||shortPremium<0){$('trade-error').textContent='請填寫兩腳有效的平倉權利金。';return}
-        pos.closings.push({id:uid(),contracts:qty,longPremium,shortPremium,fee,date,notes});
+        const credit=Number($('spread-credit').value);
+        if($('spread-credit').value===''||!Number.isFinite(credit)||credit<0){$('trade-error').textContent='請填寫有效的 net credit（可為 0）。';return}
+        pos.closings.push({id:uid(),contracts:qty,credit,fee,date,notes});
       }else{
         const premium=Number($('premium').value);
         if($('premium').value===''||!Number.isFinite(premium)||premium<0){$('trade-error').textContent='請填寫有效的平倉權利金。';return}
@@ -218,8 +220,8 @@
     const rem=remaining(p),pl=realized(p),mult=data.settings.multiplier,debit=spreadDebit(p),width=p.shortStrike-p.longStrike;
     const openCost=debit*mult*p.contracts,maxLoss=openCost+p.fee,maxGain=(width-debit)*mult*p.contracts-p.fee;
     $('detail-title').textContent=`${p.symbol} Bull Call Spread`;
-    const closings=p.closings.map(c=>`<div class="fill-row"><div><b>賣出價差 · ${c.contracts} 組</b><small>${esc(c.date)}${c.notes?` · ${esc(c.notes)}`:''}</small><small>低價 Call 賣出 ${money(c.longPremium)} · 高價 Call 買回 ${money(c.shortPremium)}</small></div><div><b>淨收 ${money(spreadCloseCredit(c))}／股</b><small>費用 ${money(c.fee)}</small><button data-delete-close="${esc(c.id)}">刪除</button></div></div>`).join('');
-    $('detail-content').innerHTML=`<div class="detail-stat"><span>已實現盈虧 · ${closedCount(p)?(rem?'部分平倉':'全部平倉'):'尚未平倉'}</span><strong class="${pl>0?'positive':pl<0?'negative':''}">${closedCount(p)?signedMoney(pl):'—'}</strong><small>${closedCount(p)?`${pct(realizedPercent(p))} · 以開倉淨權利金計算`:'尚未平倉，未有已實現盈虧'}</small></div><div class="detail-grid"><div><span>狀態</span><strong>${rem?`持倉中 · 餘 ${rem} 組`:'已平倉'}</strong></div><div><span>到期日</span><strong>${esc(p.expiry)}</strong></div><div><span>買入 Call</span><strong>${money(p.longStrike)} 行使價</strong></div><div><span>賣出 Call</span><strong>${money(p.shortStrike)} 行使價</strong></div><div><span>開倉淨成本</span><strong>${money(openCost)}</strong></div><div><span>開倉手續費</span><strong>${money(p.fee)}</strong></div><div><span>原倉最大虧損</span><strong>${money(maxLoss)}</strong></div><div><span>原倉最大盈利</span><strong>${money(maxGain)}</strong></div></div><h3 class="detail-section-title">買入價差</h3><div class="fill-row"><div><b>${p.contracts} 組 · 買入 ${money(p.longStrike)} Call</b><small>${esc(p.date)} · 權利金 ${money(p.longPremium)}／股</small></div><div><b>賣出 ${money(p.shortStrike)} Call</b><small>權利金 ${money(p.shortPremium)}／股</small></div></div>${p.notes?`<p class="detail-notes">${esc(p.notes)}</p>`:''}${p.closings.length?`<h3 class="detail-section-title">賣出價差／平倉</h3>${closings}`:''}<p class="subtle-note">原倉最大盈虧以開倉時全部組數保持至到期估算，已計開倉費用；行權、指派及其他費用不在記錄內。</p>${rem?'<div class="detail-actions"><button class="primary-button" id="detail-close-position">記錄賣出／平倉</button><button class="outline-button" id="delete-position">刪除整筆</button></div>':'<div class="detail-actions"><button class="outline-button" id="delete-position">刪除整筆</button></div>'}`;
+    const closings=p.closings.map(c=>`<div class="fill-row"><div><b>賣出價差 · ${c.contracts} 組</b><small>${esc(c.date)}${c.notes?` · ${esc(c.notes)}`:''}</small>${Number.isFinite(c.credit)?'':`<small>低價 Call 賣出 ${money(c.longPremium)} · 高價 Call 買回 ${money(c.shortPremium)}</small>`}</div><div><b>淨收 ${money(spreadCloseCredit(c))}／股</b><small>費用 ${money(c.fee)}</small><button data-delete-close="${esc(c.id)}">刪除</button></div></div>`).join('');
+    $('detail-content').innerHTML=`<div class="detail-stat"><span>已實現盈虧 · ${closedCount(p)?(rem?'部分平倉':'全部平倉'):'尚未平倉'}</span><strong class="${pl>0?'positive':pl<0?'negative':''}">${closedCount(p)?signedMoney(pl):'—'}</strong><small>${closedCount(p)?`${pct(realizedPercent(p))} · 以開倉淨權利金計算`:'尚未平倉，未有已實現盈虧'}</small></div><div class="detail-grid"><div><span>狀態</span><strong>${rem?`持倉中 · 餘 ${rem} 組`:'已平倉'}</strong></div><div><span>到期日</span><strong>${esc(p.expiry)}</strong></div><div><span>買入 Call</span><strong>${money(p.longStrike)} 行使價</strong></div><div><span>賣出 Call</span><strong>${money(p.shortStrike)} 行使價</strong></div><div><span>開倉淨成本</span><strong>${money(openCost)}</strong></div><div><span>開倉手續費</span><strong>${money(p.fee)}</strong></div><div><span>原倉最大虧損</span><strong>${money(maxLoss)}</strong></div><div><span>原倉最大盈利</span><strong>${money(maxGain)}</strong></div></div><h3 class="detail-section-title">買入價差</h3><div class="fill-row"><div><b>${p.contracts} 組 · 買入 ${money(p.longStrike)} Call</b><small>${esc(p.date)} · Net debit ${money(debit)}／股</small></div><div><b>賣出 ${money(p.shortStrike)} Call</b>${Number.isFinite(p.debit)?'':`<small>買入權利金 ${money(p.longPremium)} · 賣出權利金 ${money(p.shortPremium)}／股</small>`}</div></div>${p.notes?`<p class="detail-notes">${esc(p.notes)}</p>`:''}${p.closings.length?`<h3 class="detail-section-title">賣出價差／平倉</h3>${closings}`:''}<p class="subtle-note">原倉最大盈虧以開倉時全部組數保持至到期估算，已計開倉費用；行權、指派及其他費用不在記錄內。</p>${rem?'<div class="detail-actions"><button class="primary-button" id="detail-close-position">記錄賣出／平倉</button><button class="outline-button" id="delete-position">刪除整筆</button></div>':'<div class="detail-actions"><button class="outline-button" id="delete-position">刪除整筆</button></div>'}`;
     openDialog('detail-dialog');
   }
   function renderPlanner(){
@@ -231,9 +233,9 @@
       if(!Number.isFinite(stop)||stop<0||stop>=entry){strong.textContent='—';small.textContent='止損價須低於買入權利金';return}
       capital=entry*data.settings.multiplier;risk=(entry-stop)*data.settings.multiplier;
     }else if(planMode==='spread'){
-      const buy=Number($('plan-spread-buy').value),sell=Number($('plan-spread-sell').value),fee=Number($('plan-spread-fee').value);
-      if($('plan-spread-buy').value===''||$('plan-spread-sell').value===''||!Number.isFinite(buy)||!Number.isFinite(sell)||!Number.isFinite(fee)||buy<=sell||sell<0||fee<0){strong.textContent='—';small.textContent='買入權利金須高於賣出權利金';return}
-      capital=(buy-sell)*data.settings.multiplier+fee;risk=capital;
+      const debit=Number($('plan-spread-debit').value),fee=Number($('plan-spread-fee').value);
+      if($('plan-spread-debit').value===''||$('plan-spread-fee').value===''||!Number.isFinite(debit)||!Number.isFinite(fee)||debit<=0||fee<0){strong.textContent='—';small.textContent='輸入正數 net debit 及有效手續費';return}
+      capital=debit*data.settings.multiplier+fee;risk=capital;
     }else{
       capital=Number($('plan-capital').value);risk=Number($('plan-risk').value);
       if($('plan-capital').value===''||$('plan-risk').value===''||!Number.isFinite(capital)||!Number.isFinite(risk)||capital<=0||risk<=0){strong.textContent='—';small.textContent='輸入每張佔用資金及最大虧損';return}
@@ -249,7 +251,7 @@
     if(!Number.isFinite(Number(x.settings.startingCapital))||Number(x.settings.startingCapital)<0||!['USD','HKD'].includes(x.settings.currency)||!isWhole(Number(x.settings.multiplier)))return false;
     return x.positions.every(p=>{
       if(!p||typeof p.id!=='string'||typeof p.symbol!=='string'||!isWhole(p.contracts)||!Number.isFinite(p.fee)||p.fee<0||typeof p.date!=='string'||typeof p.expiry!=='string'||!Array.isArray(p.closings)||!p.closings.every(c=>c&&isWhole(c.contracts))||p.closings.reduce((s,c)=>s+c.contracts,0)>p.contracts)return false;
-      if(isSpread(p))return p.type==='CALL'&&Number.isFinite(p.longStrike)&&Number.isFinite(p.shortStrike)&&p.longStrike>0&&p.shortStrike>p.longStrike&&Number.isFinite(p.longPremium)&&Number.isFinite(p.shortPremium)&&p.longPremium>p.shortPremium&&p.shortPremium>=0&&p.closings.every(c=>c&&typeof c.id==='string'&&isWhole(c.contracts)&&Number.isFinite(c.longPremium)&&c.longPremium>=0&&Number.isFinite(c.shortPremium)&&c.shortPremium>=0&&Number.isFinite(c.fee)&&c.fee>=0&&typeof c.date==='string');
+      if(isSpread(p))return p.type==='CALL'&&Number.isFinite(p.longStrike)&&Number.isFinite(p.shortStrike)&&p.longStrike>0&&p.shortStrike>p.longStrike&&((Number.isFinite(p.debit)&&p.debit>0)||(Number.isFinite(p.longPremium)&&Number.isFinite(p.shortPremium)&&p.longPremium>p.shortPremium&&p.shortPremium>=0))&&p.closings.every(c=>c&&typeof c.id==='string'&&isWhole(c.contracts)&&((Number.isFinite(c.credit)&&c.credit>=0)||(Number.isFinite(c.longPremium)&&c.longPremium>=0&&Number.isFinite(c.shortPremium)&&c.shortPremium>=0))&&Number.isFinite(c.fee)&&c.fee>=0&&typeof c.date==='string');
       return (!p.strategy||p.strategy==='single')&&['CALL','PUT'].includes(p.type)&&['long','short'].includes(p.side)&&Number.isFinite(p.premium)&&p.premium>=0&&Number.isFinite(p.strike)&&p.strike>0&&p.closings.every(c=>c&&typeof c.id==='string'&&isWhole(c.contracts)&&Number.isFinite(c.premium)&&c.premium>=0&&Number.isFinite(c.fee)&&c.fee>=0&&typeof c.date==='string');
     });
   }
@@ -272,8 +274,8 @@
   document.querySelectorAll('[data-filter]').forEach(el=>el.addEventListener('click',()=>{filter=el.dataset.filter;render()}));
   $('close-position').addEventListener('change',renderCloseSummary);
   $('strategy').addEventListener('change',()=>{updateTradeFields();renderTradePreview()});
-  ['contracts','premium','fee','side','long-strike','short-strike','long-premium','short-premium','close-long-premium','close-short-premium'].forEach(id=>$(id).addEventListener('input',renderTradePreview));
-  ['plan-entry','plan-stop','plan-capital','plan-risk','plan-spread-buy','plan-spread-sell','plan-spread-fee'].forEach(id=>$(id).addEventListener('input',renderPlanner));
+  ['contracts','premium','fee','side','long-strike','short-strike','spread-debit','spread-credit'].forEach(id=>$(id).addEventListener('input',renderTradePreview));
+  ['plan-entry','plan-stop','plan-capital','plan-risk','plan-spread-debit','plan-spread-fee'].forEach(id=>$(id).addEventListener('input',renderPlanner));
   $('trade-form').addEventListener('submit',addTrade);
   $('settings-form').addEventListener('submit',event=>{event.preventDefault();const capital=Number($('starting-capital').value),mult=Number($('multiplier').value);if(!Number.isFinite(capital)||capital<0||!isWhole(mult)){toast('請輸入有效起始資金及合約乘數');return}if(data.positions.length&&mult!==data.settings.multiplier&&!confirm('更改合約乘數會重新計算過往全部交易盈虧。確定繼續？'))return;data.settings={startingCapital:capital,currency:$('currency').value,multiplier:mult};if(save()){render();toast('設定已儲存')}});
   $('export-button').addEventListener('click',exportData);$('import-file').addEventListener('change',importData);
@@ -287,3 +289,4 @@
   });
   render();
 })();
+
